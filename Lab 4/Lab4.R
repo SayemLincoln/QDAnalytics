@@ -1,0 +1,182 @@
+#SSC 442 Lab 4
+#Team Awesome (19) - Sayem Lincoln, Joshua Schwimmer, John Townshend.
+
+
+library(kernlab)
+data("spam")
+tibble::as.tibble(spam)
+
+dfSpam <- data.frame(spam)
+
+is.factor(spam$type)
+levels(spam$type)
+
+set.seed(103)
+# spam_idx = sample(nrow(spam), round(nrow(spam) / 2))
+spam_idx = sample(nrow(spam), 1000)
+spam_trn = spam[spam_idx, ]
+spam_tst = spam[-spam_idx, ]
+
+fit_caps = glm(type ~ capitalTotal,
+               data = spam_trn, family = binomial)
+fit_selected = glm(type ~ edu + money + capitalTotal + charDollar,
+                   data = spam_trn, family = binomial)
+fit_additive = glm(type ~ .,
+                   data = spam_trn, family = binomial)
+fit_over = glm(type ~ capitalTotal * (.),
+               data = spam_trn, family = binomial, maxit = 50)
+
+
+# training misclassification rate
+mean(ifelse(predict(fit_caps) > 0, "spam", "nonspam") != spam_trn$type)
+mean(ifelse(predict(fit_selected) > 0, "spam", "nonspam") != spam_trn$type)
+mean(ifelse(predict(fit_additive) > 0, "spam", "nonspam") != spam_trn$type)
+mean(ifelse(predict(fit_over) > 0, "spam", "nonspam") != spam_trn$type)
+
+#Exercise 1 
+#Part 1
+#Question 1
+
+library(boot)
+set.seed(1)
+
+caps <- cv.glm(spam_trn, fit_caps, K = 5)$delta[1]
+selected <- cv.glm(spam_trn, fit_selected, K = 5)$delta[1]
+additive <- cv.glm(spam_trn, fit_additive, K = 5)$delta[1]
+over <- cv.glm(spam_trn, fit_over, K = 5)$delta[1]
+
+#Answer -  Most underfit to Most overfit. Additive, over, selected, caps
+
+
+#Question 2
+
+#set.seed(103)
+#caps <- cv.glm(spam_trn, fit_caps, K = 100)$delta[1]
+#selected <- cv.glm(spam_trn, fit_selected, K = 100)$delta[1]
+#additive <- cv.glm(spam_trn, fit_additive, K = 100)$delta[1]
+#over <- cv.glm(spam_trn, fit_over, K = 100)$delta[1]
+
+#Answer - 
+#Most underfit to Most overfit
+#additive, over, selected, caps
+#does not change when the fold is changed
+
+#Exercise 1 (part 2)
+#Question 3 
+
+make_conf_mat = function(predicted, actual) {
+  table(predicted = predicted, actual = actual)
+}
+
+#Additive - 1st matrix
+spam_tst_pred_additive = ifelse(predict(fit_additive, spam_tst) > 0,
+                       "spam",
+                       "nonspam")
+spam_tst_pred_additive = ifelse(predict(fit_additive, spam_tst, type = "response") > 0.5,
+                       "spam",
+                       "nonspam")
+
+conf_mat_50_additive = make_conf_mat(predicted = spam_tst_pred_additive, actual = spam_tst$type)
+
+plot(conf_mat_50_additive)
+#idk <- table(spam_tst$type) / nrow(spam_tst)
+
+#Over - 2nd matrix
+spam_tst_pred_over = ifelse(predict(fit_over, spam_tst) > 0,
+                                "spam",
+                                "nonspam")
+spam_tst_pred_over = ifelse(predict(fit_over, spam_tst, type = "response") > 0.5,
+                                "spam",
+                                "nonspam")
+
+conf_mat_50_over = make_conf_mat(predicted = spam_tst_pred_over, actual = spam_tst$type)
+
+plot(conf_mat_50_over)
+
+#Selected - 3rd matrix
+spam_tst_pred_selected = ifelse(predict(fit_selected, spam_tst) > 0,
+                                "spam",
+                                "nonspam")
+spam_tst_pred_selected = ifelse(predict(fit_selected, spam_tst, type = "response") > 0.5,
+                                "spam",
+                                "nonspam")
+
+conf_mat_50_selected = make_conf_mat(predicted = spam_tst_pred_selected, actual = spam_tst$type)
+
+plot(conf_mat_50_selected)
+
+
+#Caps - 4th matrix
+spam_tst_pred_caps = ifelse(predict(fit_caps, spam_tst) > 0,
+                                "spam",
+                                "nonspam")
+spam_tst_pred_caps = ifelse(predict(fit_caps, spam_tst, type = "response") > 0.5,
+                                "spam",
+                                "nonspam")
+
+conf_mat_50_caps = make_conf_mat(predicted = spam_tst_pred_caps, actual = spam_tst$type)
+
+plot(conf_mat_50_caps)
+
+#Question 4
+#Answer - The best model is the additive model, because it gives us the highest amount of nonspam 
+#across actual and lowest amount across predicted, and does the opposite when it comes to spam; we 
+#get the lowest amount of spam across actual and highest across predicted. The reason this is better 
+#because at times which email is spam and which is nonspam isn't well defined, so through this model 
+#the user will be notified about which email is which and then the model will learn from it, but initially 
+#the model takes into account that the predicted proption of email for nonspam will be low and spam will 
+# be high, as such is the case for most general email users. But as then the model gets trained it adjusts 
+# and gives out a new output. 
+
+
+#Exercise 2 
+#Question 1
+dfBank <- read.csv("bank.csv")
+
+#Question 2
+
+is.factor(dfBank$y)
+levels(dfBank$y)
+
+
+set.seed(32)
+bank_idx = sample(nrow(dfBank), round(nrow(dfBank) / 2))
+bank_trn = dfBank[bank_idx, ]
+bank_tst = dfBank[-bank_idx, ]
+
+
+fit_selected = glm(y ~ default + housing + loan,
+                   data = bank_trn, family = binomial)
+
+selected <- cv.glm(bank_trn, fit_selected, K = 10)$delta[1]
+
+mean(ifelse(predict(fit_selected) > 0, "no", "yes") != bank_trn$y)
+
+bank_tst_pred_selected = ifelse(predict(fit_selected, bank_tst) > 0,
+                                "no",
+                                "yes")
+bank_tst_pred_selected = ifelse(predict(fit_selected, bank_tst, type = "response") > 0.5,
+                                "no",
+                                "yes")
+
+conf_mat_50_selected = make_conf_mat(predicted = bank_tst_pred_selected, actual = bank_tst$y)
+
+#table(bank_tst$y) / nrow(spam_tst)
+
+#Question 3
+#Answer - The coeffecient of defaultyes is 0.01485119, has a positive coefficient, which means 
+#it contributes more to y=yes. 
+# The coeffecient of Intercept is -1.549455, has a negative coefficient, which means 
+#it contributes more to n=no. 
+# The coeffecient of housingyes is -0.7367096, has a negative coefficient, which means 
+#it contributes more to n=no. 
+# The coeffecient of loanyes is -0.8473235, has a negative coefficient, which means 
+#it contributes more to n=no. 
+
+
+#Question 4
+plot(conf_mat_50_selected)
+
+
+
+

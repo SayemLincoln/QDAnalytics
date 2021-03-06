@@ -1,0 +1,231 @@
+#SSC 442 Lab 3
+#Team Awesome (19) - Sayem Lincoln, Joshua Schwimmer, John Townshend.
+
+
+library(ggplot2)
+library(cdata)
+library(tidyverse)
+library(caret)
+library(leaps)
+library(MASS)
+
+
+#functions
+plModel = function(model, data){
+  formula(model)
+  summary(model)
+  step(model, direction = "forward", scope=formula(model))
+  #plot(model)
+  comp = get_complexity(model)
+  rmseVal = rmse(actual = data$SalePrice, predicted = predict(model, data))
+  return(c(comp,rmseVal))
+}
+
+rmse = function(actual, predicted) {
+  sqrt(mean((actual - predicted) ^ 2))
+}
+
+get_rmse = function(model, data, response) {
+  rmse(actual = subset(data, select = response, drop = TRUE),
+       predicted = predict(model, data))
+}
+
+get_complexity = function(model) {
+  length(coef(model)) - 1
+}
+
+get_coef = function(model){
+  #coefficients extraction from lm summary
+  betas = list()
+  for(i in model[1]){
+    for(x in i){
+      betas = c(betas, x)
+    }
+  }
+  return(betas)
+}
+
+guestimateNA = function(model,data){
+  #way to predicted xval to predict NA values that have residual = 0 therefore do not interfere with further calculations
+  x = 0
+  cnt=0
+  dfAmesCleaner= data
+  betas = get_coef(model)
+  for(c in dfAmesCleaner[length(betas)]){
+    for(val in c){
+      cnt = cnt + 1
+      if(cnt>length(c)){break}
+      if(is.na(val)==TRUE){
+        if(length(betas)==2){dfAmesCleaner[cnt,length(betas)] = (as.numeric(dfAmesCleaner[cnt,1]) - as.numeric(betas[1]))/as.numeric(betas[length(betas)])}
+        if(length(betas)==3){dfAmesCleaner[cnt,length(betas)] = (as.numeric(dfAmesCleaner[cnt,1]) - as.numeric(betas[1]) - as.numeric(betas[2])*as.numeric(dfAmesCleaner[cnt,2]))/as.numeric(betas[length(betas)])}
+        if(length(betas)==4){dfAmesCleaner[cnt,length(betas)] = (as.numeric(dfAmesCleaner[cnt,1]) - as.numeric(betas[1]) - as.numeric(betas[2])*as.numeric(dfAmesCleaner[cnt,2])- as.numeric(betas[3])*as.numeric(dfAmesCleaner[cnt,3]))/as.numeric(betas[length(betas)])}
+        if(length(betas)==5){dfAmesCleaner[cnt,length(betas)] = (as.numeric(dfAmesCleaner[cnt,1]) - as.numeric(betas[1]) - as.numeric(betas[2])*as.numeric(dfAmesCleaner[cnt,2])- as.numeric(betas[3])*as.numeric(dfAmesCleaner[cnt,3])- as.numeric(betas[4])*as.numeric(dfAmesCleaner[cnt,4]))/as.numeric(betas[length(betas)])}
+        if(length(betas)==6){dfAmesCleaner[cnt,length(betas)] = (as.numeric(dfAmesCleaner[cnt,1]) - as.numeric(betas[1]) - as.numeric(betas[2])*as.numeric(dfAmesCleaner[cnt,2])- as.numeric(betas[3])*as.numeric(dfAmesCleaner[cnt,3])- as.numeric(betas[4])*as.numeric(dfAmesCleaner[cnt,4])- as.numeric(betas[5])*as.numeric(dfAmesCleaner[cnt,5]))/as.numeric(betas[length(betas)])}
+        if(length(betas)==7){dfAmesCleaner[cnt,length(betas)] = (as.numeric(dfAmesCleaner[cnt,1]) - as.numeric(betas[1]) - as.numeric(betas[2])*as.numeric(dfAmesCleaner[cnt,2])- as.numeric(betas[3])*as.numeric(dfAmesCleaner[cnt,3])- as.numeric(betas[4])*as.numeric(dfAmesCleaner[cnt,4])- as.numeric(betas[5])*as.numeric(dfAmesCleaner[cnt,5])- as.numeric(betas[6])*as.numeric(dfAmesCleaner[cnt,6]))/as.numeric(betas[length(betas)])}
+        if(length(betas)==8){dfAmesCleaner[cnt,length(betas)] = (as.numeric(dfAmesCleaner[cnt,1]) - as.numeric(betas[1]) - as.numeric(betas[2])*as.numeric(dfAmesCleaner[cnt,2])- as.numeric(betas[3])*as.numeric(dfAmesCleaner[cnt,3])- as.numeric(betas[4])*as.numeric(dfAmesCleaner[cnt,4])- as.numeric(betas[5])*as.numeric(dfAmesCleaner[cnt,5])- as.numeric(betas[6])*as.numeric(dfAmesCleaner[cnt,6])- as.numeric(betas[7])*as.numeric(dfAmesCleaner[cnt,7]))/as.numeric(betas[length(betas)])}
+        if(length(betas)==9){dfAmesCleaner[cnt,length(betas)] = (as.numeric(dfAmesCleaner[cnt,1]) - as.numeric(betas[1]) - as.numeric(betas[2])*as.numeric(dfAmesCleaner[cnt,2])- as.numeric(betas[3])*as.numeric(dfAmesCleaner[cnt,3])- as.numeric(betas[4])*as.numeric(dfAmesCleaner[cnt,4])- as.numeric(betas[5])*as.numeric(dfAmesCleaner[cnt,5])- as.numeric(betas[6])*as.numeric(dfAmesCleaner[cnt,6])- as.numeric(betas[7])*as.numeric(dfAmesCleaner[cnt,7])- as.numeric(betas[8])*as.numeric(dfAmesCleaner[cnt,8]))/as.numeric(betas[length(betas)])}
+        if(length(betas)==10){dfAmesCleaner[cnt,length(betas)] = (as.numeric(dfAmesCleaner[cnt,1]) - as.numeric(betas[1]) - as.numeric(betas[2])*as.numeric(dfAmesCleaner[cnt,2])- as.numeric(betas[3])*as.numeric(dfAmesCleaner[cnt,3])- as.numeric(betas[4])*as.numeric(dfAmesCleaner[cnt,4])- as.numeric(betas[5])*as.numeric(dfAmesCleaner[cnt,5])- as.numeric(betas[6])*as.numeric(dfAmesCleaner[cnt,6])- as.numeric(betas[7])*as.numeric(dfAmesCleaner[cnt,7])- as.numeric(betas[8])*as.numeric(dfAmesCleaner[cnt,8])- as.numeric(betas[9])*as.numeric(dfAmesCleaner[cnt,9]))/as.numeric(betas[length(betas)])}
+        if(length(betas)==11){dfAmesCleaner[cnt,length(betas)] = (as.numeric(dfAmesCleaner[cnt,1]) - as.numeric(betas[1]) - as.numeric(betas[2])*as.numeric(dfAmesCleaner[cnt,2])- as.numeric(betas[3])*as.numeric(dfAmesCleaner[cnt,3])- as.numeric(betas[4])*as.numeric(dfAmesCleaner[cnt,4])- as.numeric(betas[5])*as.numeric(dfAmesCleaner[cnt,5])- as.numeric(betas[6])*as.numeric(dfAmesCleaner[cnt,6])- as.numeric(betas[7])*as.numeric(dfAmesCleaner[cnt,7])- as.numeric(betas[8])*as.numeric(dfAmesCleaner[cnt,8])- as.numeric(betas[9])*as.numeric(dfAmesCleaner[cnt,9])- as.numeric(betas[10])*as.numeric(dfAmesCleaner[cnt,10]))/as.numeric(betas[length(betas)])}
+        if(length(betas)==12){dfAmesCleaner[cnt,length(betas)] = (as.numeric(dfAmesCleaner[cnt,1]) - as.numeric(betas[1]) - as.numeric(betas[2])*as.numeric(dfAmesCleaner[cnt,2])- as.numeric(betas[3])*as.numeric(dfAmesCleaner[cnt,3])- as.numeric(betas[4])*as.numeric(dfAmesCleaner[cnt,4])- as.numeric(betas[5])*as.numeric(dfAmesCleaner[cnt,5])- as.numeric(betas[6])*as.numeric(dfAmesCleaner[cnt,6])- as.numeric(betas[7])*as.numeric(dfAmesCleaner[cnt,7])- as.numeric(betas[8])*as.numeric(dfAmesCleaner[cnt,8])- as.numeric(betas[9])*as.numeric(dfAmesCleaner[cnt,9])- as.numeric(betas[10])*as.numeric(dfAmesCleaner[cnt,10])- as.numeric(betas[11])*as.numeric(dfAmesCleaner[cnt,11]))/as.numeric(betas[length(betas)])}
+        if(length(betas)==13){dfAmesCleaner[cnt,length(betas)] = (as.numeric(dfAmesCleaner[cnt,1]) - as.numeric(betas[1]) - as.numeric(betas[2])*as.numeric(dfAmesCleaner[cnt,2])- as.numeric(betas[3])*as.numeric(dfAmesCleaner[cnt,3])- as.numeric(betas[4])*as.numeric(dfAmesCleaner[cnt,4])- as.numeric(betas[5])*as.numeric(dfAmesCleaner[cnt,5])- as.numeric(betas[6])*as.numeric(dfAmesCleaner[cnt,6])- as.numeric(betas[7])*as.numeric(dfAmesCleaner[cnt,7])- as.numeric(betas[8])*as.numeric(dfAmesCleaner[cnt,8])- as.numeric(betas[9])*as.numeric(dfAmesCleaner[cnt,9])- as.numeric(betas[10])*as.numeric(dfAmesCleaner[cnt,10])- as.numeric(betas[11])*as.numeric(dfAmesCleaner[cnt,11])- as.numeric(betas[12])*as.numeric(dfAmesCleaner[cnt,12]))/as.numeric(betas[length(betas)])}
+        if(length(betas)==14){dfAmesCleaner[cnt,length(betas)] = (as.numeric(dfAmesCleaner[cnt,1]) - as.numeric(betas[1]) - as.numeric(betas[2])*as.numeric(dfAmesCleaner[cnt,2])- as.numeric(betas[3])*as.numeric(dfAmesCleaner[cnt,3])- as.numeric(betas[4])*as.numeric(dfAmesCleaner[cnt,4])- as.numeric(betas[5])*as.numeric(dfAmesCleaner[cnt,5])- as.numeric(betas[6])*as.numeric(dfAmesCleaner[cnt,6])- as.numeric(betas[7])*as.numeric(dfAmesCleaner[cnt,7])- as.numeric(betas[8])*as.numeric(dfAmesCleaner[cnt,8])- as.numeric(betas[9])*as.numeric(dfAmesCleaner[cnt,9])- as.numeric(betas[10])*as.numeric(dfAmesCleaner[cnt,10])- as.numeric(betas[11])*as.numeric(dfAmesCleaner[cnt,11])- as.numeric(betas[12])*as.numeric(dfAmesCleaner[cnt,12])- as.numeric(betas[13])*as.numeric(dfAmesCleaner[cnt,13]))/as.numeric(betas[length(betas)])}
+        if(length(betas)==15){dfAmesCleaner[cnt,length(betas)] = (as.numeric(dfAmesCleaner[cnt,1]) - as.numeric(betas[1]) - as.numeric(betas[2])*as.numeric(dfAmesCleaner[cnt,2])- as.numeric(betas[3])*as.numeric(dfAmesCleaner[cnt,3])- as.numeric(betas[4])*as.numeric(dfAmesCleaner[cnt,4])- as.numeric(betas[5])*as.numeric(dfAmesCleaner[cnt,5])- as.numeric(betas[6])*as.numeric(dfAmesCleaner[cnt,6])- as.numeric(betas[7])*as.numeric(dfAmesCleaner[cnt,7])- as.numeric(betas[8])*as.numeric(dfAmesCleaner[cnt,8])- as.numeric(betas[9])*as.numeric(dfAmesCleaner[cnt,9])- as.numeric(betas[10])*as.numeric(dfAmesCleaner[cnt,10])- as.numeric(betas[11])*as.numeric(dfAmesCleaner[cnt,11])- as.numeric(betas[12])*as.numeric(dfAmesCleaner[cnt,12])- as.numeric(betas[13])*as.numeric(dfAmesCleaner[cnt,13])- as.numeric(betas[14])*as.numeric(dfAmesCleaner[cnt,14]))/as.numeric(betas[length(betas)])}
+        if(length(betas)==16){dfAmesCleaner[cnt,length(betas)] = (as.numeric(dfAmesCleaner[cnt,1]) - as.numeric(betas[1]) - as.numeric(betas[2])*as.numeric(dfAmesCleaner[cnt,2])- as.numeric(betas[3])*as.numeric(dfAmesCleaner[cnt,3])- as.numeric(betas[4])*as.numeric(dfAmesCleaner[cnt,4])- as.numeric(betas[5])*as.numeric(dfAmesCleaner[cnt,5])- as.numeric(betas[6])*as.numeric(dfAmesCleaner[cnt,6])- as.numeric(betas[7])*as.numeric(dfAmesCleaner[cnt,7])- as.numeric(betas[8])*as.numeric(dfAmesCleaner[cnt,8])- as.numeric(betas[9])*as.numeric(dfAmesCleaner[cnt,9])- as.numeric(betas[10])*as.numeric(dfAmesCleaner[cnt,10])- as.numeric(betas[11])*as.numeric(dfAmesCleaner[cnt,11])- as.numeric(betas[12])*as.numeric(dfAmesCleaner[cnt,12])- as.numeric(betas[13])*as.numeric(dfAmesCleaner[cnt,13])- as.numeric(betas[14])*as.numeric(dfAmesCleaner[cnt,14])- as.numeric(betas[15])*as.numeric(dfAmesCleaner[cnt,15]))/as.numeric(betas[length(betas)])}
+      }
+      
+      
+    }
+  }
+  return(dfAmesCleaner)
+}
+
+testAndTrain = function(model, dfAmesCleaner){
+  num_obs = nrow(dfAmesCleaner)
+  train_index = sample(num_obs, size = trunc(0.50 * num_obs))
+  train_data = dfAmesCleaner[train_index, ]
+  test_data = dfAmesCleaner[-train_index, ]
+  
+  
+  fit = model
+  get_complexity(fit)
+  
+  # train RMSE
+  trainManualRmse = sqrt(mean((train_data$SalePrice - predict(fit, train_data)) ^ 2))
+  # test RMSE
+  testManualRmse = sqrt(mean((test_data$SalePrice - predict(fit, test_data)) ^ 2))
+  
+  # train RMSE
+  trainRMSE = rmse(actual = train_data$SalePrice, predicted = predict(fit, train_data))
+  # test RMSE
+  testRMSE = rmse(actual = test_data$SalePrice, predicted = predict(fit, test_data))
+  
+  return(c(trainRMSE,testRMSE))
+}
+
+#Lab 3
+#Excercise 1
+#Part 1 
+data1<-read.csv("ames.csv", header = TRUE, sep = ",")
+data2 <- subset(data1, select = -c(OverallCond, OverallQual) )
+
+#collecting data for algorithms
+Ames <- data.frame(data2)
+keep <- c( "SalePrice","MSSubClass","LotFrontage","LotArea","YearBuilt","YearRemodAdd","MasVnrArea","BsmtFinSF1", "BsmtFinSF2","BsmtUnfSF","TotalBsmtSF","X1stFlrSF","X2ndFlrSF","GrLivArea","BsmtFullBath","BsmtHalfBath")
+dfAmesCleaner <- Ames[keep]
+
+#Part 1 - making regressions
+#way to make a series of increasing complexity
+stepModel1 = lm(data2$SalePrice ~  MSSubClass, data = data2)
+stepModel2 = lm(data2$SalePrice ~  MSSubClass+LotFrontage, data = data2)
+stepModel3 = lm(data2$SalePrice ~  MSSubClass+LotFrontage+LotArea, data = data2)
+stepModel4 = lm(data2$SalePrice ~  MSSubClass+LotFrontage+LotArea+YearBuilt, data = data2)
+stepModel5 = lm(data2$SalePrice ~  MSSubClass+LotFrontage+LotArea+YearBuilt+YearRemodAdd, data = data2)
+stepModel6 = lm(data2$SalePrice ~  MSSubClass+LotFrontage+LotArea+YearBuilt+YearRemodAdd+MasVnrArea, data = data2)
+stepModel7 = lm(data2$SalePrice ~  MSSubClass+LotFrontage+LotArea+YearBuilt+YearRemodAdd+MasVnrArea+BsmtFinSF1, data = data2)
+stepModel8 = lm(data2$SalePrice ~  MSSubClass+LotFrontage+LotArea+YearBuilt+YearRemodAdd+MasVnrArea+BsmtFinSF1+ BsmtFinSF2, data = data2)
+stepModel9 = lm(data2$SalePrice ~  MSSubClass+LotFrontage+LotArea+YearBuilt+YearRemodAdd+MasVnrArea+BsmtFinSF1+ BsmtFinSF2+BsmtUnfSF, data = data2)
+stepModel10 = lm(data2$SalePrice ~  MSSubClass+LotFrontage+LotArea+YearBuilt+YearRemodAdd+MasVnrArea+BsmtFinSF1+ BsmtFinSF2+BsmtUnfSF+TotalBsmtSF, data = data2)
+stepModel11 = lm(data2$SalePrice ~  MSSubClass+LotFrontage+LotArea+YearBuilt+YearRemodAdd+MasVnrArea+BsmtFinSF1+ BsmtFinSF2+BsmtUnfSF+TotalBsmtSF+X1stFlrSF, data = data2)
+stepModel12 = lm(data2$SalePrice ~  MSSubClass+LotFrontage+LotArea+YearBuilt+YearRemodAdd+MasVnrArea+BsmtFinSF1+ BsmtFinSF2+BsmtUnfSF+TotalBsmtSF+X1stFlrSF+X2ndFlrSF, data = data2)
+stepModel13 = lm(data2$SalePrice ~  MSSubClass+LotFrontage+LotArea+YearBuilt+YearRemodAdd+MasVnrArea+BsmtFinSF1+ BsmtFinSF2+BsmtUnfSF+TotalBsmtSF+X1stFlrSF+X2ndFlrSF+GrLivArea, data = data2)
+stepModel14 = lm(data2$SalePrice ~  MSSubClass+LotFrontage+LotArea+YearBuilt+YearRemodAdd+MasVnrArea+BsmtFinSF1+ BsmtFinSF2+BsmtUnfSF+TotalBsmtSF+X1stFlrSF+X2ndFlrSF+GrLivArea+BsmtFullBath, data = data2)
+stepModel15 = lm(data2$SalePrice ~  MSSubClass+LotFrontage+LotArea+YearBuilt+YearRemodAdd+MasVnrArea+BsmtFinSF1+ BsmtFinSF2+BsmtUnfSF+TotalBsmtSF+X1stFlrSF+X2ndFlrSF+GrLivArea+BsmtFullBath+BsmtHalfBath, data = data2)
+
+#stepModel = data.frame(cbind(stepModel1,stepModel2,stepModel3,stepModel4,stepModel5,stepModel6,stepModel7,stepModel8,stepModel9,stepModel10,stepModel11,stepModel12,stepModel13,stepModel14,stepModel15))
+
+
+#way to compile data about all regressions
+dfAmesCleaner = guestimateNA(stepModel1, dfAmesCleaner)
+dfAmesCleaner =  guestimateNA(stepModel2, dfAmesCleaner)
+dfAmesCleaner =  guestimateNA(stepModel3, dfAmesCleaner)
+dfAmesCleaner =  guestimateNA(stepModel4, dfAmesCleaner)
+dfAmesCleaner =  guestimateNA(stepModel5, dfAmesCleaner)
+dfAmesCleaner =  guestimateNA(stepModel6, dfAmesCleaner)
+dfAmesCleaner =  guestimateNA(stepModel7, dfAmesCleaner)
+dfAmesCleaner =  guestimateNA(stepModel8, dfAmesCleaner)
+dfAmesCleaner =  guestimateNA(stepModel9, dfAmesCleaner)
+dfAmesCleaner =  guestimateNA(stepModel10, dfAmesCleaner)
+dfAmesCleaner =  guestimateNA(stepModel11, dfAmesCleaner)
+dfAmesCleaner =  guestimateNA(stepModel12, dfAmesCleaner)
+dfAmesCleaner =  guestimateNA(stepModel13, dfAmesCleaner)
+dfAmesCleaner =  guestimateNA(stepModel14, dfAmesCleaner)
+dfAmesCleaner =  guestimateNA(stepModel15, dfAmesCleaner)
+
+
+
+#Part 2 - create a bunch of random graphs and set up variable for part 3
+# get complexity,RMSE pairs
+compPlot1 = plModel(stepModel1, dfAmesCleaner)
+compPlot2 =  plModel(stepModel2, dfAmesCleaner)
+compPlot3 =  plModel(stepModel3, dfAmesCleaner)
+compPlot4 =  plModel(stepModel4, dfAmesCleaner)
+compPlot5 =  plModel(stepModel5, dfAmesCleaner)
+compPlot6 =  plModel(stepModel6, dfAmesCleaner)
+compPlot7 =  plModel(stepModel7, dfAmesCleaner)
+compPlot8 =  plModel(stepModel8, dfAmesCleaner)
+compPlot9 =  plModel(stepModel9, dfAmesCleaner)
+compPlot10 =  plModel(stepModel10, dfAmesCleaner)
+compPlot11 =  plModel(stepModel11, dfAmesCleaner)
+compPlot12 =  plModel(stepModel12, dfAmesCleaner)
+compPlot13 =  plModel(stepModel13, dfAmesCleaner)
+compPlot14 =  plModel(stepModel14, dfAmesCleaner)
+compPlot15 =  plModel(stepModel15, dfAmesCleaner)
+
+compPlot = data.frame(rbind(compPlot1,compPlot2,compPlot3,compPlot4,compPlot5,compPlot6,compPlot7,compPlot8,compPlot9,compPlot10,compPlot11,compPlot12,compPlot13,compPlot14,compPlot15))
+
+#Part 3 - graphing 
+plot(x=compPlot[,1],y=compPlot[,2], xlab = "Complexity Level", ylab = "RMSE Value" , main="Complexity vs RMSE plot")
+#Describe any patterns you see. 
+#Ans - A scatter plot that forms a decreasing linear pattern.
+
+#Do you think you should use the full-size model? Why or why not? 
+#Ans - A full strecthed model presents a plot that is very strecthed out, as the complexity increases the 
+# RMSE values decrease gradually, I say gradually because a pattern can be seen, as the RMSE to complexity 
+#values stay constant for when 2 or 3 new vaaribales are added to the model but the RMSE decrease when more
+#then 3 variables are added to the model. 
+
+#When a full model is used the RMSE vs complexity plot stayed the same compared to the three previous models'  plots
+# so the full model presents the final ourtcome of how all the previous models have progressed. 
+#What criterion are you using to make this statement?
+# Making it on the basis of how the outcome came to be and how the RMSE value went down instead of going up,
+#as the error between the models decreased and a proper value for RMSE got produced. 
+
+# #Ex 2
+# #Part 1 - plotting train vs test RMSE
+
+rmseVal1 = testAndTrain(stepModel1, dfAmesCleaner)
+rmseVal2 =  testAndTrain(stepModel2, dfAmesCleaner)
+rmseVal3 =  testAndTrain(stepModel3, dfAmesCleaner)
+rmseVal4 =  testAndTrain(stepModel4, dfAmesCleaner)
+rmseVal5 =  testAndTrain(stepModel5, dfAmesCleaner)
+rmseVal6 =  testAndTrain(stepModel6, dfAmesCleaner)
+rmseVal7 =  testAndTrain(stepModel7, dfAmesCleaner)
+rmseVal8 =  testAndTrain(stepModel8, dfAmesCleaner)
+rmseVal9 =  testAndTrain(stepModel9, dfAmesCleaner)
+rmseVal10 =  testAndTrain(stepModel10, dfAmesCleaner)
+rmseVal11 =  testAndTrain(stepModel11, dfAmesCleaner)
+rmseVal12 =  testAndTrain(stepModel12, dfAmesCleaner)
+rmseVal13 =  testAndTrain(stepModel13, dfAmesCleaner)
+rmseVal14 =  testAndTrain(stepModel14, dfAmesCleaner)
+rmseVal15 =  testAndTrain(stepModel15, dfAmesCleaner)
+
+rmseVal = data.frame(rbind(rmseVal1,rmseVal2,rmseVal3,rmseVal4,rmseVal5,rmseVal6,rmseVal7,rmseVal8,rmseVal9,rmseVal10,rmseVal11,rmseVal12,rmseVal13,rmseVal14,rmseVal15))
+plot(x=rmseVal[,1],y=rmseVal[,2], xlab = "Train RMSE", ylab = "Test RMSE", main ="Plot for the Train and Test RMSE for the 15 models")
+
+
+#Part 2 - Predict SalesPrice and show RMSE
+Ames <- data.frame(data2)
+keep <- c( "SalePrice","GarageArea","TotalBsmtSF","GrLivArea")
+dfAmesPredict <- Ames[keep]
+
+
+modelPredict = lm(dfAmesPredict$SalePrice ~  GarageArea+TotalBsmtSF+GrLivArea, data = dfAmesPredict)
+rmseValPredict = testAndTrain(stepModel5, dfAmesCleaner)
+
+print("Train RMSE:")
+print(rmseValPredict[1])
+print("Test RMSE:")
+print(rmseValPredict[2])
+
+#Part 3 in uploaded pdf. 
+
